@@ -17,10 +17,15 @@ pub use helpers::{
     default_node_transform, generate_random_graph, generate_simple_digraph,
     generate_simple_ungraph, node_size, to_graph, to_graph_custom,
 };
+
+pub use layouts::force_directed::{
+    ForceDirected as LayoutForceDirected, State as LayoutStateForceDirected,
+};
 pub use layouts::hierarchical::{
     Hierarchical as LayoutHierarchical, State as LayoutStateHierarchical,
 };
 pub use layouts::random::{Random as LayoutRandom, State as LayoutStateRandom};
+
 pub use metadata::Metadata;
 pub use settings::{SettingsInteraction, SettingsNavigation, SettingsStyle};
 
