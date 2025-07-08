@@ -75,7 +75,11 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
         } else {
             ctx.ctx.style().visuals.widgets.inactive
         };
-        let color = style.fg_stroke.color;
+        let color = style
+            .fg_stroke
+            .color
+            .blend(Color32::CYAN.gamma_multiply(0.2))
+            .gamma_multiply(0.8);
         let stroke = Stroke::new(self.width, color);
 
         if start.id() == end.id() {
@@ -138,7 +142,7 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
 
             // TODO: export to func
             if label_visible {
-                let size = (node_size(start, dir) + node_size(end, dir)) / 2.;
+                let size = f32::midpoint(node_size(start, dir), node_size(end, dir));
                 let galley = ctx.ctx.fonts(|f| {
                     f.layout_no_wrap(
                         self.label_text.clone(),
@@ -184,7 +188,7 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
         res.extend(curved_shapes.clone());
 
         if label_visible {
-            let size = (node_size(start, dir) + node_size(end, dir)) / 2.;
+            let size = f32::midpoint(node_size(start, dir), node_size(end, dir));
             let galley = ctx.ctx.fonts(|f| {
                 f.layout_no_wrap(
                     self.label_text.clone(),
