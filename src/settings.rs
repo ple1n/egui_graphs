@@ -157,7 +157,7 @@ impl SettingsNavigation {
 /// `SettingsStyle` stores settings for the style of the graph.
 #[derive(Debug, Clone, Default)]
 pub struct SettingsStyle {
-    pub(crate) labels_always: bool,
+    pub labels_always: bool,
 }
 
 impl SettingsStyle {

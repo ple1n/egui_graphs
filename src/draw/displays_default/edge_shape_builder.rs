@@ -58,6 +58,7 @@ impl<'a> EdgeShapeBuilder<'a> {
     }
 
     pub fn curved(mut self, bounds: (Pos2, Pos2), curve_size: f32, order: usize) -> Self {
+        assert_ne!(bounds.0, bounds.1);
         self.shape_props = EdgeShapeProps::Curved {
             bounds,
             curve_size,
@@ -254,7 +255,10 @@ impl<'a> EdgeShapeBuilder<'a> {
                 .map(|p| scaler.canvas_to_screen_pos(*p))
                 .collect();
         }
-
+        for p in &points_curve {
+            assert!(!p.any_nan());
+        }
+        assert!(!(points_curve[0] == points_curve[3]));
         res.push(
             CubicBezierShape::from_points_stroke(
                 [

@@ -1,7 +1,7 @@
 mod draw;
 mod elements;
 mod graph;
-mod graph_view;
+pub mod graph_view;
 mod helpers;
 mod layouts;
 mod metadata;
@@ -11,6 +11,7 @@ pub use draw::{DefaultEdgeShape, DefaultNodeShape, DisplayEdge, DisplayNode, Dra
 pub use elements::{Edge, EdgeProps, Node, NodeProps};
 pub use graph::Graph;
 pub use graph_view::{DefaultGraphView, GraphView};
+
 #[allow(deprecated)]
 pub use helpers::{
     add_edge, add_edge_custom, add_node, add_node_custom, default_edge_transform,

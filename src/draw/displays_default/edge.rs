@@ -67,7 +67,6 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
         ctx: &DrawContext,
     ) -> Vec<egui::Shape> {
         let mut res = vec![];
-
         let label_visible = ctx.style.labels_always || self.selected;
 
         let style = if self.selected {
@@ -123,11 +122,59 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
         let start_connector_point = start.display().closest_boundary_point(dir);
         let end_connector_point = end.display().closest_boundary_point(-dir);
 
-        if self.order == 0 {
-            // draw straight edge
+        if dir.length() != 0. {
+            if self.order == 0 {
+                // draw straight edge
+
+                let mut builder = EdgeShapeBuilder::new(stroke)
+                    .straight((start_connector_point, end_connector_point))
+                    .with_scaler(ctx.meta);
+
+                let tip_props = TipProps {
+                    size: self.tip_size,
+                    angle: self.tip_angle,
+                };
+                if ctx.is_directed {
+                    builder = builder.with_tip(&tip_props);
+                }
+                let straight_shapes = builder.build();
+                res.extend(straight_shapes);
+
+                // TODO: export to func
+                if label_visible {
+                    let size = f32::midpoint(node_size(start, dir), node_size(end, dir));
+                    let galley = ctx.ctx.fonts(|f| {
+                        f.layout_no_wrap(
+                            self.label_text.clone(),
+                            FontId::new(
+                                ctx.meta.canvas_to_screen_size(size),
+                                FontFamily::Monospace,
+                            ),
+                            color,
+                        )
+                    });
+
+                    let dist = end_connector_point - start_connector_point;
+                    let center = ctx
+                        .meta
+                        .canvas_to_screen_pos(start_connector_point + dist / 2.);
+                    let label_width = galley.rect.width();
+                    let label_height = galley.rect.height();
+                    let pos = Pos2::new(center.x - label_width / 2., center.y - label_height);
+
+                    let label_shape = TextShape::new(pos, galley, color);
+                    res.push(label_shape.into());
+                }
+
+                return res;
+            }
 
             let mut builder = EdgeShapeBuilder::new(stroke)
-                .straight((start_connector_point, end_connector_point))
+                .curved(
+                    (start_connector_point, end_connector_point),
+                    self.curve_size,
+                    self.order,
+                )
                 .with_scaler(ctx.meta);
 
             let tip_props = TipProps {
@@ -137,10 +184,11 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
             if ctx.is_directed {
                 builder = builder.with_tip(&tip_props);
             }
-            let straight_shapes = builder.build();
-            res.extend(straight_shapes);
-
-            // TODO: export to func
+            let curved_shapes = builder.build();
+            let Some(Shape::CubicBezier(line_curved)) = curved_shapes.first() else {
+                panic!("invalid shape type")
+            };
+            res.extend(curved_shapes.clone());
             if label_visible {
                 let size = f32::midpoint(node_size(start, dir), node_size(end, dir));
                 let galley = ctx.ctx.fonts(|f| {
@@ -151,61 +199,16 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
                     )
                 });
 
-                let dist = end_connector_point - start_connector_point;
-                let center = ctx
-                    .meta
-                    .canvas_to_screen_pos(start_connector_point + dist / 2.);
+                let flattened_curve = line_curved.flatten(None);
+                let median = *flattened_curve.get(flattened_curve.len() / 2).unwrap();
+
                 let label_width = galley.rect.width();
                 let label_height = galley.rect.height();
-                let pos = Pos2::new(center.x - label_width / 2., center.y - label_height);
+                let pos = Pos2::new(median.x - label_width / 2., median.y - label_height);
 
                 let label_shape = TextShape::new(pos, galley, color);
                 res.push(label_shape.into());
             }
-
-            return res;
-        }
-
-        let mut builder = EdgeShapeBuilder::new(stroke)
-            .curved(
-                (start_connector_point, end_connector_point),
-                self.curve_size,
-                self.order,
-            )
-            .with_scaler(ctx.meta);
-
-        let tip_props = TipProps {
-            size: self.tip_size,
-            angle: self.tip_angle,
-        };
-        if ctx.is_directed {
-            builder = builder.with_tip(&tip_props);
-        }
-        let curved_shapes = builder.build();
-        let Some(Shape::CubicBezier(line_curved)) = curved_shapes.first() else {
-            panic!("invalid shape type")
-        };
-        res.extend(curved_shapes.clone());
-
-        if label_visible {
-            let size = f32::midpoint(node_size(start, dir), node_size(end, dir));
-            let galley = ctx.ctx.fonts(|f| {
-                f.layout_no_wrap(
-                    self.label_text.clone(),
-                    FontId::new(ctx.meta.canvas_to_screen_size(size), FontFamily::Monospace),
-                    color,
-                )
-            });
-
-            let flattened_curve = line_curved.flatten(None);
-            let median = *flattened_curve.get(flattened_curve.len() / 2).unwrap();
-
-            let label_width = galley.rect.width();
-            let label_height = galley.rect.height();
-            let pos = Pos2::new(median.x - label_width / 2., median.y - label_height);
-
-            let label_shape = TextShape::new(pos, galley, color);
-            res.push(label_shape.into());
         }
 
         res
@@ -272,16 +275,21 @@ impl DefaultEdgeShape {
         let dir = (node_end.location() - node_start.location()).normalized();
         let start = node_start.display().closest_boundary_point(dir);
         let end = node_end.display().closest_boundary_point(-dir);
-
+        assert!(!node_start.location().any_nan());
+        assert!(!dir.any_nan());
+        assert!(!start.any_nan());
         let stroke = Stroke::new(self.width, Color32::default());
         let curved_shapes = EdgeShapeBuilder::new(stroke)
             .curved((start, end), self.curve_size, self.order)
             .build();
-
         let curved_shape = match curved_shapes.first() {
             Some(Shape::CubicBezier(curve)) => curve.clone(),
             _ => panic!("invalid shape type"),
         };
+        assert!(!pos.any_nan());
+        for p in curved_shape.points {
+            assert!(!p.any_nan());
+        }
         is_point_on_curve(pos, &curved_shape, self.width)
     }
 }

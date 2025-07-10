@@ -33,7 +33,6 @@ impl<N: Clone> From<NodeProps<N>> for DefaultNodeShape {
             color: node_props.color(),
 
             radius: 5.0,
-            ..Default::default()
         }
     }
 }
