@@ -9,7 +9,7 @@ use crate::{draw::drawer::DrawContext, DisplayNode, NodeProps};
 /// This is the default node shape which is used to display nodes in the graph.
 ///
 /// You can use this implementation as an example for implementing your own custom node shapes.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct DefaultNodeShape {
     pub pos: Pos2,
 
@@ -33,6 +33,7 @@ impl<N: Clone> From<NodeProps<N>> for DefaultNodeShape {
             color: node_props.color(),
 
             radius: 5.0,
+            ..Default::default()
         }
     }
 }

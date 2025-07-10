@@ -322,6 +322,8 @@ fn proj(a: Vec2, b: Vec2) -> Vec2 {
     Vec2::new(k * b.x, k * b.y)
 }
 
+// the curve should never contain NaN points
+// otherwise it errors 'the tolerance should be positive'
 fn is_point_on_curve(point: Pos2, curve: &CubicBezierShape, tolerance: f32) -> bool {
     for p in curve.flatten(None) {
         if p.distance(point) < tolerance {

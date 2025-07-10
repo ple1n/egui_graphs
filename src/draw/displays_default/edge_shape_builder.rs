@@ -195,9 +195,12 @@ impl<'a> EdgeShapeBuilder<'a> {
         res
     }
 
-    fn shape_curved(&self, bounds: (Pos2, Pos2), curve_size: f32, param: f32) -> Vec<Shape> {
+    fn shape_curved(&self, bounds: (Pos2, Pos2), curve_size: f32, mut param: f32) -> Vec<Shape> {
         let mut res = vec![];
         let (start, end) = bounds;
+        if param <= 0. {
+            param = 1.;
+        }
         let mut stroke = self.stroke;
 
         let dist = end - start;
@@ -207,9 +210,19 @@ impl<'a> EdgeShapeBuilder<'a> {
         let height = dir_p * curve_size * param;
         let cp = center_point + height;
 
-        let cp_start = cp - dir * curve_size / (param * dist * 0.5);
-        let cp_end = cp + dir * curve_size / (param * dist * 0.5);
+        let d = (param * dist * 0.5).min(Vec2::new(1., 1.));
+        let mut cp_start = cp - dir * curve_size / d;
+        let mut cp_end = cp + dir * curve_size / d;
+        // dbg!(cp, dir, curve_size, param, dist);
 
+        if cp_start.any_nan() {
+            cp_start = start;
+        }
+        if cp_end.any_nan() {
+            cp_end = end;
+        }
+        assert!(!cp_start.any_nan());
+        assert!(!cp_end.any_nan());
         let mut points_curve = vec![start, cp_start, cp_end, end];
 
         let mut points_tip = match self.tip {
@@ -296,4 +309,26 @@ fn rotate_vector(vec: Vec2, angle: f32) -> Vec2 {
     let cos = angle.cos();
     let sin = angle.sin();
     Vec2::new(cos * vec.x - sin * vec.y, sin * vec.x + cos * vec.y)
+}
+
+#[test]
+fn make_nan() {
+    // [visual/egui_graphs/src/draw/displays_default/edge_shape_builder.rs:219:9] cp = [0.0 0.0]
+    // [visual/egui_graphs/src/draw/displays_default/edge_shape_builder.rs:219:9] dir = [0.0 0.0]
+    // [visual/egui_graphs/src/draw/displays_default/edge_shape_builder.rs:219:9] curve_size = 20.0
+    // [visual/egui_graphs/src/draw/displays_default/edge_shape_builder.rs:219:9] param = 1.0
+    // [visual/egui_graphs/src/draw/displays_default/edge_shape_builder.rs:219:9] dist = [0.0 0.0]
+
+    // thread 'main' panicked at visual/egui_graphs/src/draw/displays_default/edge_shape_builder.rs:220:9:
+    // assertion failed: !cp_start.any_nan()
+    // stack backtrace:
+
+    let a = Vec2::new(0., 0.);
+    // let cp_start = cp - dir * curve_size / (param * dist * 0.5);
+
+    let cp = a - a * 20.0 / (1.0 * a * 0.5);
+    dbg!(a * 20.0);
+    dbg!(1.0 * a * 0.5);
+    dbg!(a * 20.0 / (1.0 * a * 0.5));
+    dbg!(cp);
 }
