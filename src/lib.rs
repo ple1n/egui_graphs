@@ -7,8 +7,6 @@ mod layouts;
 mod metadata;
 mod settings;
 
-pub mod float;
-
 pub use draw::{DefaultEdgeShape, DefaultNodeShape, DisplayEdge, DisplayNode, DrawContext};
 pub use elements::{Edge, EdgeProps, Node, NodeProps};
 pub use graph::Graph;
