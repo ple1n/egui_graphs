@@ -57,3 +57,4 @@ return_self_not_must_use = { level = "allow", priority = 14 }
 eframe = "0.31"
 bevy = "0.16"
 bevy_egui = "0.34"
+

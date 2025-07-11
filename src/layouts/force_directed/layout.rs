@@ -1,3 +1,5 @@
+#![allow(clippy::similar_names)]
+
 use egui::Vec2;
 use petgraph::{csr::IndexType, EdgeType};
 use serde::{Deserialize, Serialize};
@@ -46,12 +48,13 @@ impl Layout<State> for ForceDirected {
         if !self.state.is_running || g.node_count() == 0 {
             return;
         }
+        // self.state.is_running = false;
 
         /* ----------------------------------------------------------------- */
         /*                         pre-computed values                       */
         /* ----------------------------------------------------------------- */
         let n = g.node_count() as f32;
-        let area = g.bounds().area().max(1.0);
+        let area = g.bounds().area().max(1000.);
         let k = (area / n).sqrt(); // ideal edge length
         let centre = g.bounds().center();
 

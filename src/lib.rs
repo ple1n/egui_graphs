@@ -19,6 +19,7 @@ pub use helpers::{
     generate_simple_ungraph, node_size, to_graph, to_graph_custom,
 };
 
+pub use layouts::empty;
 pub use layouts::force_directed::{
     ForceDirected as LayoutForceDirected, State as LayoutStateForceDirected,
 };
