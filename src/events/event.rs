@@ -78,4 +78,5 @@ pub enum Event {
     EdgeClick(PayloadEdgeClick),
     EdgeSelect(PayloadEdgeSelect),
     EdgeDeselect(PayloadEdgeDeselect),
+    NodeHover(usize, bool),
 }

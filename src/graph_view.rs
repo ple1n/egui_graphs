@@ -105,22 +105,21 @@ where
         self.sync_state(&mut meta);
 
         let (resp, p) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
+
         self.handle_fit_to_screen(&resp, &mut meta);
         self.handle_navigation(ui, &resp, &mut meta);
         self.handle_node_drag(&resp, &mut meta);
         self.handle_click(&resp, &mut meta);
 
-        Drawer::<N, E, Ty, Ix, Nd, Ed, S, L>::new(
-            self.g,
-            &DrawContext {
-                ctx: ui.ctx(),
-                painter: &p,
-                meta: &meta,
-                is_directed: self.g.is_directed(),
-                style: &self.settings_style,
-            },
-        )
-        .draw();
+        let drawctx = DrawContext {
+            ctx: ui.ctx(),
+            painter: &p,
+            meta: &meta,
+            is_directed: self.g.is_directed(),
+            style: &self.settings_style,
+        };
+        let drawer = Drawer::<N, E, Ty, Ix, Nd, Ed, S, L>::new(self.g, &drawctx);
+        drawer.draw();
 
         meta.first_frame = false;
         meta.save(ui);
@@ -256,16 +255,13 @@ where
     }
 
     fn handle_click(&mut self, resp: &Response, meta: &mut Metadata) {
-        if !resp.clicked() && !resp.double_clicked() {
-            return;
-        }
-
         let clickable = self.settings_interaction.node_clicking_enabled
             || self.settings_interaction.node_selection_enabled
             || self.settings_interaction.node_selection_multi_enabled
             || self.settings_interaction.edge_clicking_enabled
             || self.settings_interaction.edge_selection_enabled
             || self.settings_interaction.edge_selection_multi_enabled;
+        meta.hovered = None;
 
         if !(clickable) {
             return;
@@ -300,10 +296,14 @@ where
                 self.handle_node_double_click(idx);
                 return;
             }
-            self.handle_node_click(idx);
+            if resp.clicked() {
+                self.handle_node_click(idx);
+            }
+            if resp.hovered() {
+                meta.hovered = Some(idx.index());
+            }
             return;
         }
-
         if let Some(edge_idx) = found_edge {
             self.handle_edge_click(edge_idx);
         }

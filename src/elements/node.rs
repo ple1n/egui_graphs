@@ -21,9 +21,11 @@ where
     pub selected: bool,
     pub dragged: bool,
     pub hidden: bool,
+    pub hover: bool,
 
     color: Option<Color32>,
     location: Pos2,
+    pub index: Option<usize>,
 }
 
 impl<N> NodeProps<N>
@@ -106,6 +108,8 @@ where
             selected: bool::default(),
             dragged: bool::default(),
             hidden: false,
+            hover: false,
+            index: None,
         };
 
         Node::new_with_props(props)
@@ -141,6 +145,7 @@ where
 
     pub(crate) fn set_id(&mut self, id: NodeIndex<Ix>) {
         self.id = Some(id);
+        self.props.index = Some(id.index());
     }
 
     pub fn payload(&self) -> &N {

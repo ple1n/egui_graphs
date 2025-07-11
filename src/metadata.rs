@@ -62,6 +62,8 @@ pub struct Metadata {
 
     /// State of bounds iteration
     bounds: Bounds,
+
+    pub hovered: Option<usize>,
 }
 
 impl Default for Metadata {
@@ -72,6 +74,7 @@ impl Default for Metadata {
             pan: Vec2::default(),
             top_left: Pos2::default(),
             bounds: Bounds::default(),
+            hovered: None,
         }
     }
 }
