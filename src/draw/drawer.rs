@@ -83,7 +83,7 @@ where
 
                 let display = n.display_mut();
                 display.update(&props);
-                let shapes = display.shapes(self.ctx);
+                let shapes = display.shapes(self.ctx, &props);
 
                 if n.selected() || n.dragged() {
                     for s in shapes {

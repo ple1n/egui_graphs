@@ -24,7 +24,7 @@ where
     ///
     /// Use `ctx.meta` to properly scale and translate the shape.
     /// Use `ctx.painter` to have low level access to egui painting process.
-    fn shapes(&mut self, ctx: &DrawContext) -> Vec<Shape>;
+    fn shapes(&mut self, ctx: &DrawContext, state: &NodeProps<N>) -> Vec<Shape>;
 
     /// Is called on every frame. Can be used for updating state of the implementation of [`DisplayNode`]
     fn update(&mut self, state: &NodeProps<N>);
