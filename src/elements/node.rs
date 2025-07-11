@@ -20,6 +20,7 @@ where
     pub label: String,
     pub selected: bool,
     pub dragged: bool,
+    pub hidden: bool,
 
     color: Option<Color32>,
     location: Pos2,
@@ -49,7 +50,7 @@ where
 {
     id: Option<NodeIndex<Ix>>,
 
-    props: NodeProps<N>,
+    pub props: NodeProps<N>,
     display: D,
 
     _marker: PhantomData<(E, Ty)>,
@@ -78,9 +79,8 @@ where
     D: DisplayNode<N, E, Ty, Ix>,
 {
     fn clone(&self) -> Self {
-        let idx = self.id().index();
         Self {
-            id: Some(NodeIndex::new(idx)),
+            id: self.id,
             props: self.props.clone(),
             display: self.display.clone(),
             _marker: PhantomData,
@@ -105,6 +105,7 @@ where
             label: String::default(),
             selected: bool::default(),
             dragged: bool::default(),
+            hidden: false,
         };
 
         Node::new_with_props(props)
@@ -134,9 +135,8 @@ where
         &mut self.display
     }
 
-    #[allow(clippy::missing_panics_doc)] // TODO: Add panic message
-    pub fn id(&self) -> NodeIndex<Ix> {
-        self.id.unwrap()
+    pub fn id(&self) -> Option<NodeIndex<Ix>> {
+        self.id
     }
 
     pub(crate) fn set_id(&mut self, id: NodeIndex<Ix>) {

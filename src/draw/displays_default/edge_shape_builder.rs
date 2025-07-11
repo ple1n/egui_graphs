@@ -222,8 +222,10 @@ impl<'a> EdgeShapeBuilder<'a> {
         if cp_end.any_nan() {
             cp_end = end;
         }
-        assert!(!cp_start.any_nan());
-        assert!(!cp_end.any_nan());
+        if cp_start.any_nan() || cp_end.any_nan() {
+            return vec![Shape::Noop];
+        }
+
         let mut points_curve = vec![start, cp_start, cp_end, end];
 
         let mut points_tip = match self.tip {

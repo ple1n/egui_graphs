@@ -25,12 +25,12 @@ pub struct Drawer<'a, N, E, Ty, Ix, Nd, Ed, S, L>
 where
     N: Clone,
     E: Clone,
-    Ty: EdgeType,
+    Ty: EdgeType + Clone,
     Ix: IndexType,
     Nd: DisplayNode<N, E, Ty, Ix>,
     Ed: DisplayEdge<N, E, Ty, Ix, Nd>,
     S: LayoutState,
-    L: Layout<S>,
+    L: Layout<S, N, E, Ty, Ix, Nd, Ed>,
 {
     ctx: &'a DrawContext<'a>,
     g: &'a mut Graph<N, E, Ty, Ix, Nd, Ed>,
@@ -43,12 +43,12 @@ impl<'a, N, E, Ty, Ix, Nd, Ed, S, L> Drawer<'a, N, E, Ty, Ix, Nd, Ed, S, L>
 where
     N: Clone,
     E: Clone,
-    Ty: EdgeType,
+    Ty: EdgeType + Clone,
     Ix: IndexType,
     Nd: DisplayNode<N, E, Ty, Ix>,
     Ed: DisplayEdge<N, E, Ty, Ix, Nd>,
     S: LayoutState,
-    L: Layout<S>,
+    L: Layout<S, N, E, Ty, Ix, Nd, Ed>,
 {
     pub fn new(g: &'a mut Graph<N, E, Ty, Ix, Nd, Ed>, ctx: &'a DrawContext<'a>) -> Self {
         Drawer {
@@ -78,7 +78,7 @@ where
             .collect::<Vec<_>>()
             .into_iter()
             .for_each(|idx| {
-                let n = self.g.node_mut(idx).unwrap();
+                let (n, p) = self.g.node_mut(idx).unwrap();
                 let props = n.props().clone();
 
                 let display = n.display_mut();
@@ -107,14 +107,15 @@ where
                 let (idx_start, idx_end) = self.g.edge_endpoints(idx).unwrap();
 
                 // FIXME: too costly to clone nodes for every edge
-                let start = self.g.node(idx_start).cloned().unwrap();
-                let end = self.g.node(idx_end).cloned().unwrap();
+                let (start, sp) = self.g.node(idx_start).cloned().unwrap();
+                let (end, ep) = self.g.node(idx_end).cloned().unwrap();
 
                 let e = self.g.edge_mut(idx).unwrap();
                 let props = e.props().clone();
 
                 let display = e.display_mut();
                 display.update(&props);
+
                 let shapes = display.shapes(&start, &end, self.ctx);
 
                 if e.selected() {

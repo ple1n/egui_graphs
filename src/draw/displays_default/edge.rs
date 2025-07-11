@@ -186,7 +186,8 @@ impl<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode<N, E, Ty, I
             }
             let curved_shapes = builder.build();
             let Some(Shape::CubicBezier(line_curved)) = curved_shapes.first() else {
-                panic!("invalid shape type")
+                // panic!("invalid shape type")
+                return vec![Shape::Noop];
             };
             res.extend(curved_shapes.clone());
             if label_visible {

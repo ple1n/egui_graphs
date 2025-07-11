@@ -1,4 +1,4 @@
-use crate::{DisplayEdge, DisplayNode, Edge, Graph, Node};
+use crate::{graph::ForceGraphType, DisplayEdge, DisplayNode, Edge, Graph, Node};
 use egui::Vec2;
 use petgraph::{
     graph::IndexType,
@@ -17,7 +17,7 @@ pub fn add_node<N, E, Ty, Ix, Dn, De>(g: &mut Graph<N, E, Ty, Ix, Dn, De>, n: &N
 where
     N: Clone,
     E: Clone,
-    Ty: EdgeType,
+    Ty: EdgeType + Clone,
     Ix: IndexType,
     Dn: DisplayNode<N, E, Ty, Ix>,
     De: DisplayEdge<N, E, Ty, Ix, Dn>,
@@ -41,7 +41,7 @@ pub fn add_node_custom<N, E, Ty, Ix, Dn, De>(
 where
     N: Clone,
     E: Clone,
-    Ty: EdgeType,
+    Ty: EdgeType + Clone,
     Ix: IndexType,
     Dn: DisplayNode<N, E, Ty, Ix>,
     De: DisplayEdge<N, E, Ty, Ix, Dn>,
@@ -60,7 +60,7 @@ pub fn add_edge<N, E, Ty, Ix, Dn, De>(
 where
     N: Clone,
     E: Clone,
-    Ty: EdgeType,
+    Ty: EdgeType + Clone,
     Ix: IndexType,
     Dn: DisplayNode<N, E, Ty, Ix>,
     De: DisplayEdge<N, E, Ty, Ix, Dn>,
@@ -90,7 +90,7 @@ pub fn add_edge_custom<N, E, Ty, Ix, Dn, De>(
 where
     N: Clone,
     E: Clone,
-    Ty: EdgeType,
+    Ty: EdgeType + Clone,
     Ix: IndexType,
     Dn: DisplayNode<N, E, Ty, Ix>,
     De: DisplayEdge<N, E, Ty, Ix, Dn>,
@@ -135,7 +135,7 @@ pub fn to_graph<N, E, Ty, Ix, Dn, De>(g: &StableGraph<N, E, Ty, Ix>) -> Graph<N,
 where
     N: Clone,
     E: Clone,
-    Ty: EdgeType,
+    Ty: EdgeType + Clone,
     Ix: IndexType,
     Dn: DisplayNode<N, E, Ty, Ix>,
     De: DisplayEdge<N, E, Ty, Ix, Dn>,
@@ -152,7 +152,7 @@ pub fn to_graph_custom<N, E, Ty, Ix, Dn, De>(
 where
     N: Clone,
     E: Clone,
-    Ty: EdgeType,
+    Ty: EdgeType + Clone,
     Ix: IndexType,
     Dn: DisplayNode<N, E, Ty, Ix>,
     De: DisplayEdge<N, E, Ty, Ix, Dn>,
@@ -168,15 +168,13 @@ fn transform<N, E, Ty, Ix, Dn, De>(
 where
     N: Clone,
     E: Clone,
-    Ty: EdgeType,
+    Ty: EdgeType + Clone,
     Ix: IndexType,
     Dn: DisplayNode<N, E, Ty, Ix>,
     De: DisplayEdge<N, E, Ty, Ix, Dn>,
 {
-    let g_stable =
-        StableGraph::<Node<N, E, Ty, Ix, Dn>, Edge<N, E, Ty, Ix, Dn, De>, Ty, Ix>::default();
-
-    let mut g = Graph::new(g_stable);
+    let g = ForceGraphType::default();
+    let mut g = Graph::new(g);
 
     let nidx_by_input_nidx = input
         .node_references()
@@ -220,7 +218,7 @@ pub fn node_size<N: Clone, E: Clone, Ty: EdgeType, Ix: IndexType, D: DisplayNode
 pub fn default_edge_transform<
     N: Clone,
     E: Clone,
-    Ty: EdgeType,
+    Ty: EdgeType + Clone,
     Ix: IndexType,
     Dn: DisplayNode<N, E, Ty, Ix>,
     D: DisplayEdge<N, E, Ty, Ix, Dn>,
@@ -235,13 +233,13 @@ pub fn default_edge_transform<
 pub fn default_node_transform<
     N: Clone,
     E: Clone,
-    Ty: EdgeType,
+    Ty: EdgeType + Clone,
     Ix: IndexType,
     D: DisplayNode<N, E, Ty, Ix>,
 >(
     node: &mut Node<N, E, Ty, Ix, D>,
 ) {
-    node.set_label(format!("node {}", node.id().index()));
+    node.set_label(format!("node {:?}", &node.id()));
 }
 
 /// Generates a random graph with the specified number of nodes and edges.
@@ -317,7 +315,7 @@ mod tests {
 
         for (user_idx, input_idx) in input_g.g().node_indices().zip(user_g.node_indices()) {
             let user_n = user_g.node_weight(user_idx).unwrap();
-            let input_n = input_g.g().node_weight(input_idx).unwrap();
+            let (input_n, p) = input_g.g().node_weight(input_idx).unwrap();
 
             assert_eq!(*input_n.payload(), *user_n);
             assert_eq!(*input_n.label(), format!("node {}", user_idx.index()));
@@ -342,7 +340,7 @@ mod tests {
 
         for (user_idx, input_idx) in input_g.g().node_indices().zip(user_g.node_indices()) {
             let user_n = user_g.node_weight(user_idx).unwrap();
-            let input_n = input_g.g().node_weight(input_idx).unwrap();
+            let (input_n, p) = input_g.g().node_weight(input_idx).unwrap();
 
             assert_eq!(*input_n.payload(), *user_n);
             assert_eq!(*input_n.label(), format!("node {}", user_idx.index()));

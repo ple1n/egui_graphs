@@ -1,3 +1,3 @@
 mod layout;
 
-pub use layout::{ForceDirected, State};
+pub use layout::State;

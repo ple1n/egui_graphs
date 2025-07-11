@@ -10,6 +10,10 @@ use crate::{
 
 use egui::{Id, PointerButton, Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
 
+use fdg::{
+    nalgebra::{Const, OPoint},
+    ForceGraph,
+};
 use petgraph::{graph::EdgeIndex, stable_graph::DefaultIx};
 use petgraph::{graph::IndexType, Directed};
 use petgraph::{stable_graph::NodeIndex, EdgeType};
@@ -24,8 +28,8 @@ pub type DefaultGraphView<'a> = GraphView<
     DefaultIx,
     DefaultNodeShape,
     DefaultEdgeShape,
-    layouts::random::State,
-    layouts::random::Random,
+    layouts::force_directed::State,
+    layouts::force_directed::State,
 >;
 
 #[cfg(feature = "events")]
@@ -60,20 +64,19 @@ pub struct GraphView<
     Ix = DefaultIx,
     Nd = DefaultNodeShape,
     Ed = DefaultEdgeShape,
-    S = layouts::random::State,
-    L = layouts::random::Random,
+    S = layouts::force_directed::State,
+    L = layouts::force_directed::State,
 > where
     N: Clone,
     E: Clone,
-    Ty: EdgeType,
+    Ty: EdgeType + Clone,
     Ix: IndexType,
     Nd: DisplayNode<N, E, Ty, Ix>,
     Ed: DisplayEdge<N, E, Ty, Ix, Nd>,
     S: LayoutState,
-    L: Layout<S>,
+    L: Layout<S, N, E, Ty, Ix, Nd, Ed>,
 {
     g: &'a mut Graph<N, E, Ty, Ix, Nd, Ed>,
-
     settings_interaction: SettingsInteraction,
     settings_navigation: SettingsNavigation,
     settings_style: SettingsStyle,
@@ -88,12 +91,12 @@ impl<N, E, Ty, Ix, Nd, Ed, S, L> Widget for &mut GraphView<'_, N, E, Ty, Ix, Nd,
 where
     N: Clone,
     E: Clone,
-    Ty: EdgeType,
+    Ty: EdgeType + Clone,
     Ix: IndexType,
     Nd: DisplayNode<N, E, Ty, Ix>,
     Ed: DisplayEdge<N, E, Ty, Ix, Nd>,
     S: LayoutState,
-    L: Layout<S>,
+    L: Layout<S, N, E, Ty, Ix, Nd, Ed>,
 {
     fn ui(self, ui: &mut Ui) -> Response {
         self.sync_layout(ui);
@@ -132,12 +135,12 @@ impl<'a, N, E, Ty, Ix, Dn, De, S, L> GraphView<'a, N, E, Ty, Ix, Dn, De, S, L>
 where
     N: Clone,
     E: Clone,
-    Ty: EdgeType,
+    Ty: EdgeType + Clone,
     Ix: IndexType,
     Dn: DisplayNode<N, E, Ty, Ix>,
     De: DisplayEdge<N, E, Ty, Ix, Dn>,
     S: LayoutState,
-    L: Layout<S>,
+    L: Layout<S, N, E, Ty, Ix, Dn, De>,
 {
     /// Creates a new `GraphView` widget with default navigation and interactions settings.
     /// To customize navigation and interactions use `with_interactions` and `with_navigations` methods.
@@ -219,7 +222,7 @@ where
         let mut dragged = None;
 
         meta.reset_bounds();
-        self.g.nodes_iter().for_each(|(idx, n)| {
+        self.g.nodes_iter().for_each(|(idx, (n, p))| {
             if n.dragged() {
                 dragged = Some(idx);
             }
@@ -331,7 +334,7 @@ where
             return;
         }
 
-        let n = self.g.node(idx).unwrap();
+        let (n, p) = self.g.node(idx).unwrap();
         if n.selected() {
             self.deselect_node(idx);
             return;
@@ -403,7 +406,7 @@ where
         // compensate movement of the node which is not caused by dragging
         if let Some(n_idx_dragged) = self.g.dragged_node() {
             if let Some(mouse_pos) = resp.hover_pos() {
-                if let Some(node) = self.g.node(n_idx_dragged) {
+                if let Some((node, p)) = self.g.node(n_idx_dragged) {
                     let node_pos = node.location() * meta.zoom + meta.pan;
                     let delta = mouse_pos - node_pos;
 
@@ -509,7 +512,7 @@ where
     }
 
     fn select_node(&mut self, idx: NodeIndex<Ix>) {
-        let n = self.g.node_mut(idx).unwrap();
+        let (n, p) = self.g.node_mut(idx).unwrap();
         n.set_selected(true);
 
         #[cfg(feature = "events")]
@@ -517,7 +520,7 @@ where
     }
 
     fn deselect_node(&mut self, idx: NodeIndex<Ix>) {
-        let n = self.g.node_mut(idx).unwrap();
+        let (n, p) = self.g.node_mut(idx).unwrap();
         n.set_selected(false);
 
         #[cfg(feature = "events")]
@@ -581,9 +584,10 @@ where
     }
 
     fn move_node(&mut self, idx: NodeIndex<Ix>, delta: Vec2) {
-        let n = self.g.node_mut(idx).unwrap();
+        let (n, p) = self.g.node_mut(idx).unwrap();
         let new_loc = n.location() + delta;
         n.set_location(new_loc);
+        *p = OPoint::<f32, Const<2>>::new(new_loc.x, new_loc.y);
 
         #[cfg(feature = "events")]
         self.publish_event(Event::NodeMove(PayloadNodeMove {
@@ -594,7 +598,7 @@ where
     }
 
     fn set_drag_start(&mut self, idx: NodeIndex<Ix>) {
-        let n = self.g.node_mut(idx).unwrap();
+        let (n, p) = self.g.node_mut(idx).unwrap();
         n.set_dragged(true);
 
         #[cfg(feature = "events")]
@@ -604,7 +608,7 @@ where
     }
 
     fn set_drag_end(&mut self, idx: NodeIndex<Ix>) {
-        let n = self.g.node_mut(idx).unwrap();
+        let (n, p) = self.g.node_mut(idx).unwrap();
         n.set_dragged(false);
 
         #[cfg(feature = "events")]

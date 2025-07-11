@@ -1,3 +1,5 @@
+#![allow(clippy::default_trait_access)]
+
 mod draw;
 mod elements;
 mod graph;
@@ -19,17 +21,12 @@ pub use helpers::{
     generate_simple_ungraph, node_size, to_graph, to_graph_custom,
 };
 
-pub use layouts::empty;
-pub use layouts::force_directed::{
-    ForceDirected as LayoutForceDirected, State as LayoutStateForceDirected,
-};
-pub use layouts::hierarchical::{
-    Hierarchical as LayoutHierarchical, State as LayoutStateHierarchical,
-};
-pub use layouts::random::{Random as LayoutRandom, State as LayoutStateRandom};
+pub use layouts::force_directed::State as LayoutForce;
 
 pub use metadata::Metadata;
 pub use settings::{SettingsInteraction, SettingsNavigation, SettingsStyle};
 
 #[cfg(feature = "events")]
 pub mod events;
+
+pub use graph::new_from_raw;

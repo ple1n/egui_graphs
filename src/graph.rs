@@ -1,6 +1,8 @@
 use std::collections::HashSet;
 
 use egui::{Pos2, Rect};
+use fdg::nalgebra::OPoint;
+use fdg::{ForceGraph, ForceGraphNode};
 use petgraph::stable_graph::DefaultIx;
 use petgraph::Directed;
 
@@ -21,6 +23,10 @@ use crate::{metadata::Metadata, Edge, Node};
 type StableGraphType<N, E, Ty, Ix, Dn, De> =
     StableGraph<Node<N, E, Ty, Ix, Dn>, Edge<N, E, Ty, Ix, Dn, De>, Ty, Ix>;
 
+pub type ForceGraphType<N, E, Ty, Ix, Dn, De> =
+    ForceGraph<f32, 2, Node<N, E, Ty, Ix, Dn>, Edge<N, E, Ty, Ix, Dn, De>, Ty, Ix>;
+
+pub type FNode<N, E, Ty, Ix, Dn> = ForceGraphNode<f32, 2, Node<N, E, Ty, Ix, Dn>>;
 /// Wrapper around [`petgraph::stable_graph::StableGraph`] compatible with [`super::GraphView`].
 /// It is used to store graph data and provide access to it.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -39,7 +45,7 @@ pub struct Graph<
     Dn: DisplayNode<N, E, Ty, Ix>,
     De: DisplayEdge<N, E, Ty, Ix, Dn>,
 {
-    g: StableGraphType<N, E, Ty, Ix, Dn, De>,
+    g: ForceGraphType<N, E, Ty, Ix, Dn, De>,
 
     selected_nodes: Vec<NodeIndex<Ix>>,
     selected_edges: Vec<EdgeIndex<Ix>>,
@@ -52,7 +58,7 @@ impl<N, E, Ty, Ix, Dn, De> From<&StableGraph<N, E, Ty, Ix>> for Graph<N, E, Ty, 
 where
     N: Clone,
     E: Clone,
-    Ty: EdgeType,
+    Ty: EdgeType + Clone,
     Ix: IndexType,
     Dn: DisplayNode<N, E, Ty, Ix>,
     De: DisplayEdge<N, E, Ty, Ix, Dn>,
@@ -62,16 +68,67 @@ where
     }
 }
 
-impl<N, E, Ty, Ix, Dn, De> Graph<N, E, Ty, Ix, Dn, De>
+pub fn new_from_raw<N, E, Ty, Ix, Dn, De>(
+    sg: &StableGraph<N, E, Ty, Ix>,
+    node_transform: &mut impl FnMut(&mut Node<N, E, Ty, Ix, Dn>),
+    edge_transform: &mut impl FnMut(&mut Edge<N, E, Ty, Ix, Dn, De>),
+) -> Graph<N, E, Ty, Ix, Dn, De>
 where
     N: Clone,
     E: Clone,
-    Ty: EdgeType,
+    Ty: EdgeType + Clone,
     Ix: IndexType,
     Dn: DisplayNode<N, E, Ty, Ix>,
     De: DisplayEdge<N, E, Ty, Ix, Dn>,
 {
-    pub fn new(g: StableGraphType<N, E, Ty, Ix, Dn, De>) -> Self {
+    let mut s1: StableGraph<Node<N, E, _, _, _>, Edge<N, E, _, _, _, _>, _, Ix> =
+        StableGraph::default();
+    for (ni, n) in sg.node_references() {
+        let mut n1 = crate::Node::new(n.to_owned());
+        n1.set_id(ni);
+        node_transform(&mut n1);
+        s1.add_node(n1);
+    }
+    for e in sg.edge_references() {
+        let mut e1 = crate::Edge::new(e.weight().to_owned());
+        e1.set_id(e.id());
+        edge_transform(&mut e1);
+        s1.add_edge(e.source(), e.target(), e1);
+    }
+    let n = sg.node_count() as f32 * 15.;
+    let g = fdg::init_force_graph_uniform(s1, n);
+
+    Graph {
+        g,
+        selected_nodes: Vec::default(),
+        selected_edges: Vec::default(),
+        dragged_node: Option::default(),
+        bounds: Rect::from_min_max(Pos2::ZERO, Pos2::ZERO),
+    }
+}
+
+impl<N, E, Ty, Ix, Dn, De> Graph<N, E, Ty, Ix, Dn, De>
+where
+    N: Clone,
+    E: Clone,
+    Ty: EdgeType + Clone,
+    Ix: IndexType,
+    Dn: DisplayNode<N, E, Ty, Ix>,
+    De: DisplayEdge<N, E, Ty, Ix, Dn>,
+{
+    pub fn new(g: ForceGraphType<N, E, Ty, Ix, Dn, De>) -> Self {
+        Self {
+            g,
+            selected_nodes: Vec::default(),
+            selected_edges: Vec::default(),
+            dragged_node: Option::default(),
+            bounds: Rect::from_min_max(Pos2::ZERO, Pos2::ZERO),
+        }
+    }
+
+    pub fn new_from(sg: StableGraphType<N, E, Ty, Ix, Dn, De>) -> Self {
+        let n = sg.node_count() as f32 * 15.;
+        let g = fdg::init_force_graph_uniform(sg, n);
         Self {
             g,
             selected_nodes: Vec::default(),
@@ -85,8 +142,8 @@ where
     pub fn node_by_screen_pos(&self, meta: &Metadata, screen_pos: Pos2) -> Option<NodeIndex<Ix>> {
         let pos_in_graph = meta.screen_to_canvas_pos(screen_pos);
         for (idx, node) in self.nodes_iter() {
-            let display = node.display();
-            if display.is_inside(pos_in_graph) {
+            let (display, pos) = node;
+            if display.display().is_inside(pos_in_graph) {
                 return Some(idx);
             }
         }
@@ -103,7 +160,8 @@ where
             };
             let start = self.g.node_weight(idx_start).unwrap();
             let end = self.g.node_weight(idx_end).unwrap();
-            if e.display().is_inside(start, end, pos_in_graph) {
+
+            if e.display().is_inside(&start.0, &end.0, pos_in_graph) {
                 return Some(idx);
             }
         }
@@ -111,11 +169,11 @@ where
         None
     }
 
-    pub fn g_mut(&mut self) -> &mut StableGraphType<N, E, Ty, Ix, Dn, De> {
+    pub fn g_mut(&mut self) -> &mut ForceGraphType<N, E, Ty, Ix, Dn, De> {
         &mut self.g
     }
 
-    pub fn g(&self) -> &StableGraphType<N, E, Ty, Ix, Dn, De> {
+    pub fn g(&self) -> &ForceGraphType<N, E, Ty, Ix, Dn, De> {
         &self.g
     }
 
@@ -133,8 +191,8 @@ where
     ) -> NodeIndex<Ix> {
         let node = Node::new(payload);
 
-        let idx = self.g.add_node(node);
-        let graph_node = self.g.node_weight_mut(idx).unwrap();
+        let idx = self.g.add_node((node, OPoint::default()));
+        let (graph_node, p) = self.g.node_weight_mut(idx).unwrap();
 
         graph_node.set_id(idx);
 
@@ -173,7 +231,7 @@ where
     }
 
     /// Removes node by index. Returns removed node and None if it does not exist.
-    pub fn remove_node(&mut self, idx: NodeIndex<Ix>) -> Option<Node<N, E, Ty, Ix, Dn>> {
+    pub fn remove_node(&mut self, idx: NodeIndex<Ix>) -> Option<FNode<N, E, Ty, Ix, Dn>> {
         // before removing nodes we need to remove all edges connected to it
         let neighbors = self.g.neighbors_undirected(idx).collect::<Vec<_>>();
         for n in &neighbors {
@@ -326,7 +384,7 @@ where
     }
 
     /// Provides iterator over all nodes and their indices.
-    pub fn nodes_iter(&self) -> impl Iterator<Item = (NodeIndex<Ix>, &Node<N, E, Ty, Ix, Dn>)> {
+    pub fn nodes_iter(&self) -> impl Iterator<Item = (NodeIndex<Ix>, &FNode<N, E, Ty, Ix, Dn>)> {
         self.g.node_references()
     }
 
@@ -336,7 +394,7 @@ where
         self.g.edge_references().map(|e| (e.id(), e.weight()))
     }
 
-    pub fn node(&self, i: NodeIndex<Ix>) -> Option<&Node<N, E, Ty, Ix, Dn>> {
+    pub fn node(&self, i: NodeIndex<Ix>) -> Option<&FNode<N, E, Ty, Ix, Dn>> {
         self.g.node_weight(i)
     }
 
@@ -348,7 +406,7 @@ where
         self.g.edge_endpoints(i)
     }
 
-    pub fn node_mut(&mut self, i: NodeIndex<Ix>) -> Option<&mut Node<N, E, Ty, Ix, Dn>> {
+    pub fn node_mut(&mut self, i: NodeIndex<Ix>) -> Option<&mut FNode<N, E, Ty, Ix, Dn>> {
         self.g.node_weight_mut(i)
     }
 

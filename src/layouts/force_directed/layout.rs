@@ -1,12 +1,22 @@
 #![allow(clippy::similar_names)]
+#![allow(clippy::type_complexity)]
 
-use egui::Vec2;
-use petgraph::{csr::IndexType, EdgeType};
-use serde::{Deserialize, Serialize};
+use egui::{Pos2, Vec2};
+use fdg::{
+    fruchterman_reingold::{FruchtermanReingold, FruchtermanReingoldConfiguration},
+    nalgebra::{clamp, OPoint, SVector},
+    Force, ForceGraph,
+};
+use petgraph::{
+    csr::{DefaultIx, IndexType},
+    visit::IntoNodeReferences,
+    Directed, EdgeType,
+};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use crate::{
     layouts::{Layout, LayoutState},
-    DisplayEdge, DisplayNode, Graph,
+    DisplayEdge, DisplayNode, Edge, Graph, Node,
 };
 
 const DT: f32 = 0.05;
@@ -14,106 +24,84 @@ const GRAVITY: f32 = 3.0;
 const EPSILON: f32 = 0.001;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct State {
+pub struct State<const D: usize = 2, Ix: IndexType = DefaultIx> {
     is_running: bool,
+    algo: FruchtermanReingold<f32, D, Ix>,
+    v: f32,
 }
 
-impl LayoutState for State {}
+impl<const D: usize, Ix: IndexType> LayoutState for State<D, Ix> where
+    Ix: DeserializeOwned + Serialize + Send + Sync
+{
+}
 
-impl Default for State {
+impl<const D: usize, Ix: IndexType> Default for State<D, Ix> {
     fn default() -> Self {
-        State { is_running: true }
+        State {
+            is_running: true,
+            algo: FruchtermanReingold {
+                conf: FruchtermanReingoldConfiguration {
+                    dt: 0.02,
+                    cooloff_factor: 0.99,
+                    scale: 200.0,
+                },
+                velocities: Default::default(),
+            },
+            v: f32::INFINITY,
+        }
     }
 }
 
-#[derive(Debug, Default)]
-pub struct ForceDirected {
-    state: State,
-}
-
-impl Layout<State> for ForceDirected {
-    fn from_state(state: State) -> impl Layout<State> {
-        ForceDirected { state }
+impl<N, E, Ty, Ix, Dn, De> Layout<State<2, Ix>, N, E, Ty, Ix, Dn, De> for State<2, Ix>
+where
+    N: Clone,
+    E: Clone,
+    Ty: EdgeType + Clone,
+    Ix: DeserializeOwned + Serialize + Send + Sync + IndexType,
+    Dn: DisplayNode<N, E, Ty, Ix>,
+    De: DisplayEdge<N, E, Ty, Ix, Dn>,
+{
+    fn from_state(state: State<2, Ix>) -> impl Layout<State<2, Ix>, N, E, Ty, Ix, Dn, De> {
+        state
     }
 
-    fn next<N, E, Ty, Ix, Dn, De>(&mut self, g: &mut Graph<N, E, Ty, Ix, Dn, De>)
+    fn next(&mut self, g: &mut Graph<N, E, Ty, Ix, Dn, De>)
     where
         N: Clone,
         E: Clone,
-        Ty: EdgeType,
-        Ix: IndexType,
+        Ty: EdgeType + Clone,
+        Ix: IndexType + Clone,
         Dn: DisplayNode<N, E, Ty, Ix>,
         De: DisplayEdge<N, E, Ty, Ix, Dn>,
     {
-        if !self.state.is_running || g.node_count() == 0 {
+        if !self.is_running || g.node_count() == 0 {
             return;
         }
-        // self.state.is_running = false;
 
-        /* ----------------------------------------------------------------- */
-        /*                         pre-computed values                       */
-        /* ----------------------------------------------------------------- */
-        let n = g.node_count() as f32;
-        let area = g.bounds().area().max(1000.);
-        let k = (area / n).sqrt(); // ideal edge length
-        let centre = g.bounds().center();
+        let gx: &mut ForceGraph<
+            f32,
+            2,
+            Node<N, E, Ty, Ix, Dn>,
+            Edge<N, E, Ty, Ix, Dn, De>,
+            Ty,
+            Ix,
+        > = g.g_mut();
+        #[allow(clippy::unreadable_literal)]
+        let coeff: usize = clamp(((self.v / 0.0000002).round() as usize), 1, 50);
 
-        let indices: Vec<_> = g.g().node_indices().collect();
-        let mut disp: Vec<Vec2> = vec![Vec2::ZERO; indices.len()];
-
-        /* ----------------------------------------------------------------- */
-        /*           PASS 1 — node-to-node repulsion (O(|V|²))               */
-        /* ----------------------------------------------------------------- */
-        for i in 0..indices.len() {
-            for j in (i + 1)..indices.len() {
-                let idx_i = indices[i];
-                let idx_j = indices[j];
-
-                let delta = g.g().node_weight(idx_i).unwrap().location()
-                    - g.g().node_weight(idx_j).unwrap().location();
-                let dist = delta.length().max(EPSILON); // no division by 0
-
-                let force = (k * k) / dist;
-                let dir = delta / dist; // unit vector
-
-                disp[i] += dir * force; // push i
-                disp[j] -= dir * force; // equal & opposite push j
-            }
+        self.algo.apply_many(gx, coeff);
+        let mut vavg: SVector<_, 2> = Default::default();
+        for v in self.algo.velocities.values() {
+            vavg += v / self.algo.velocities.len() as f32;
         }
+        self.v = vavg.norm();
 
-        /* ----------------------------------------------------------------- */
-        /*           PASS 2 — edge attraction  +  centre gravity             */
-        /* ----------------------------------------------------------------- */
-        for (idx_pos, &idx) in indices.iter().enumerate() {
-            let loc = g.g().node_weight(idx).unwrap().location();
-
-            // attract towards every neighbour
-            for nbr in g.g().neighbors_undirected(idx) {
-                let delta = g.g().node_weight(nbr).unwrap().location() - loc;
-                let dist = delta.length().max(EPSILON);
-
-                let force = (dist * dist) / k;
-                disp[idx_pos] += (delta / dist) * force;
-            }
-
-            // gentle gravity to centre
-            disp[idx_pos] += (centre - loc) * GRAVITY;
-        }
-
-        /* ----------------------------------------------------------------- */
-        /*                    integrate & write back                         */
-        /* ----------------------------------------------------------------- */
-        for (idx_pos, &idx) in indices.iter().enumerate() {
-            let loc = g.g().node_weight(idx).unwrap().location();
-            let new_loc = loc + disp[idx_pos] * DT;
-
-            g.g_mut()
-                .node_weight_mut(idx)
-                .unwrap()
-                .set_location(new_loc);
+        for (n, p) in g.g_mut().node_weights_mut() {
+            let p = Pos2::new(p.x, p.y);
+            n.set_location(p);
         }
     }
-    fn state(&self) -> State {
-        self.state.clone()
+    fn state(&self) -> State<2, Ix> {
+        self.clone()
     }
 }
