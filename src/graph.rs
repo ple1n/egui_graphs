@@ -96,7 +96,7 @@ where
         edge_transform(&mut e1);
         s1.add_edge(e.source(), e.target(), e1);
     }
-    let n = sg.node_count() as f32 * 15.;
+    let n = sg.node_count() as f32 * 5.;
     let g = fdg::init_force_graph_uniform(s1, n);
 
     Graph {
