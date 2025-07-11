@@ -110,7 +110,7 @@ where
         self.handle_navigation(ui, &resp, &mut meta);
         self.handle_node_drag(&resp, &mut meta);
         self.handle_click(&resp, &mut meta);
-
+        self.g.meta = meta.clone();
         let drawctx = DrawContext {
             ctx: ui.ctx(),
             painter: &p,

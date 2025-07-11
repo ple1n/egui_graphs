@@ -52,6 +52,7 @@ pub struct Graph<
     dragged_node: Option<NodeIndex<Ix>>,
 
     bounds: Rect,
+    pub meta: Metadata,
 }
 
 impl<N, E, Ty, Ix, Dn, De> From<&StableGraph<N, E, Ty, Ix>> for Graph<N, E, Ty, Ix, Dn, De>
@@ -104,6 +105,7 @@ where
         selected_edges: Vec::default(),
         dragged_node: Option::default(),
         bounds: Rect::from_min_max(Pos2::ZERO, Pos2::ZERO),
+        meta: Default::default(),
     }
 }
 
@@ -123,6 +125,7 @@ where
             selected_edges: Vec::default(),
             dragged_node: Option::default(),
             bounds: Rect::from_min_max(Pos2::ZERO, Pos2::ZERO),
+            meta: Default::default(),
         }
     }
 
@@ -135,6 +138,7 @@ where
             selected_edges: Vec::default(),
             dragged_node: Option::default(),
             bounds: Rect::from_min_max(Pos2::ZERO, Pos2::ZERO),
+            meta: Default::default(),
         }
     }
 
