@@ -23,7 +23,7 @@ use crate::{metadata::Metadata, Edge, Node};
 type StableGraphType<N, E, Ty, Ix, Dn, De> =
     StableGraph<Node<N, E, Ty, Ix, Dn>, Edge<N, E, Ty, Ix, Dn, De>, Ty, Ix>;
 
-pub type ForceGraphType<N, E, Ty, Ix, Dn, De> =
+pub type ForceGraphType<N, E, Ty, Ix, Dn = DefaultNodeShape, De = DefaultEdgeShape> =
     ForceGraph<f32, 2, Node<N, E, Ty, Ix, Dn>, Edge<N, E, Ty, Ix, Dn, De>, Ty, Ix>;
 
 pub type FNode<N, E, Ty = Directed, Ix = DefaultIx, Dn = DefaultNodeShape> =
@@ -58,9 +58,6 @@ pub struct Graph<
     bounds: Rect,
     pub meta: Metadata,
 }
-
-pub type DispalyForceGraphDefault<N, E, Ty, Ix> =
-    ForceGraphType<N, E, Ty, Ix, DefaultNodeShape, DefaultEdgeShape>;
 
 impl<N, E, Ty, Ix, Dn, De> From<&StableGraph<N, E, Ty, Ix>> for Graph<N, E, Ty, Ix, Dn, De>
 where
