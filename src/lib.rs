@@ -1,12 +1,12 @@
 #![allow(clippy::default_trait_access)]
 
-mod draw;
-mod elements;
+pub mod draw;
+pub mod elements;
 pub mod graph;
 pub mod graph_view;
 mod helpers;
 mod layouts;
-mod metadata;
+pub mod metadata;
 mod settings;
 
 pub use draw::{DefaultEdgeShape, DefaultNodeShape, DisplayEdge, DisplayNode, DrawContext};

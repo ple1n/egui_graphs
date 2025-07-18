@@ -1,5 +1,5 @@
 mod edge;
-mod edge_shape_builder;
+pub mod edge_shape_builder;
 mod node;
 
 pub use edge::DefaultEdgeShape;

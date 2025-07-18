@@ -63,7 +63,13 @@ pub struct Metadata {
     /// State of bounds iteration
     bounds: Bounds,
 
-    pub hovered: Option<usize>,
+    pub hovered: Option<GraphElement>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum GraphElement {
+    Node(usize),
+    Path(usize),
 }
 
 impl Default for Metadata {

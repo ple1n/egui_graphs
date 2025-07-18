@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use crate::{
     draw::{DefaultEdgeShape, DefaultNodeShape, DrawContext, Drawer},
     layouts::{self, Layout, LayoutState},
-    metadata::Metadata,
+    metadata::{GraphElement, Metadata},
     settings::{SettingsInteraction, SettingsNavigation, SettingsStyle},
     DisplayEdge, DisplayNode, Graph,
 };
@@ -274,16 +274,18 @@ where
         let found_node = self.g.node_by_screen_pos(meta, cursor_pos);
         if found_node.is_none() && found_edge.is_none() {
             // click on empty space
-            let nodes_selectable = self.settings_interaction.node_selection_enabled
-                || self.settings_interaction.node_selection_multi_enabled;
-            if nodes_selectable {
-                self.deselect_all_nodes();
-            }
+            if resp.clicked() {
+                let nodes_selectable = self.settings_interaction.node_selection_enabled
+                    || self.settings_interaction.node_selection_multi_enabled;
+                if nodes_selectable {
+                    self.deselect_all_nodes();
+                }
 
-            let edges_selectable = self.settings_interaction.edge_selection_enabled
-                || self.settings_interaction.edge_selection_multi_enabled;
-            if edges_selectable {
-                self.deselect_all_edges();
+                let edges_selectable = self.settings_interaction.edge_selection_enabled
+                    || self.settings_interaction.edge_selection_multi_enabled;
+                if edges_selectable {
+                    self.deselect_all_edges();
+                }
             }
             return;
         }
@@ -300,12 +302,17 @@ where
                 self.handle_node_click(idx);
             }
             if resp.hovered() {
-                meta.hovered = Some(idx.index());
+                meta.hovered = Some(GraphElement::Node(idx.index()));
             }
             return;
         }
         if let Some(edge_idx) = found_edge {
-            self.handle_edge_click(edge_idx);
+            if resp.hovered() {
+                meta.hovered = Some(GraphElement::Path(edge_idx.index()));
+            }
+            if resp.clicked() {
+                self.handle_edge_click(edge_idx);
+            }
         }
     }
 

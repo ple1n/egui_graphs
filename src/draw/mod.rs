@@ -1,6 +1,6 @@
-mod displays;
-mod displays_default;
-mod drawer;
+pub mod displays;
+pub mod displays_default;
+pub mod drawer;
 
 pub use displays::{DisplayEdge, DisplayNode};
 pub use displays_default::DefaultEdgeShape;

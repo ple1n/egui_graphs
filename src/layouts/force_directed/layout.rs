@@ -43,7 +43,7 @@ impl<const D: usize, Ix: IndexType> Default for State<D, Ix> {
                 conf: FruchtermanReingoldConfiguration {
                     dt: 0.02,
                     cooloff_factor: 0.99,
-                    scale: 200.0,
+                    scale: 300.0,
                 },
                 velocities: Default::default(),
             },
@@ -87,7 +87,7 @@ where
             Ix,
         > = g.g_mut();
         #[allow(clippy::unreadable_literal)]
-        let coeff: usize = clamp(((self.v / 0.0000002).round() as usize), 0, 300);
+        let coeff: usize = clamp(((self.v / 0.00000000000002).round() as usize), 0, 30);
 
         self.algo.apply_many(gx, coeff);
         let mut vavg: SVector<_, 2> = Default::default();
