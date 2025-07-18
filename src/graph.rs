@@ -26,7 +26,11 @@ type StableGraphType<N, E, Ty, Ix, Dn, De> =
 pub type ForceGraphType<N, E, Ty, Ix, Dn, De> =
     ForceGraph<f32, 2, Node<N, E, Ty, Ix, Dn>, Edge<N, E, Ty, Ix, Dn, De>, Ty, Ix>;
 
-pub type FNode<N, E, Ty, Ix, Dn> = ForceGraphNode<f32, 2, Node<N, E, Ty, Ix, Dn>>;
+pub type FNode<N, E, Ty = Directed, Ix = DefaultIx, Dn = DefaultNodeShape> =
+    ForceGraphNode<f32, 2, Node<N, E, Ty, Ix, Dn>>;
+
+pub type FEdge<N, E, Ty = Directed, Ix = DefaultIx, Dn = DefaultNodeShape, De = DefaultEdgeShape> =
+    Edge<N, E, Ty, Ix, Dn, De>;
 /// Wrapper around [`petgraph::stable_graph::StableGraph`] compatible with [`super::GraphView`].
 /// It is used to store graph data and provide access to it.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -54,6 +58,9 @@ pub struct Graph<
     bounds: Rect,
     pub meta: Metadata,
 }
+
+pub type DispalyForceGraphDefault<N, E, Ty, Ix> =
+    ForceGraphType<N, E, Ty, Ix, DefaultNodeShape, DefaultEdgeShape>;
 
 impl<N, E, Ty, Ix, Dn, De> From<&StableGraph<N, E, Ty, Ix>> for Graph<N, E, Ty, Ix, Dn, De>
 where

@@ -2,7 +2,7 @@
 
 mod draw;
 mod elements;
-mod graph;
+pub mod graph;
 pub mod graph_view;
 mod helpers;
 mod layouts;
